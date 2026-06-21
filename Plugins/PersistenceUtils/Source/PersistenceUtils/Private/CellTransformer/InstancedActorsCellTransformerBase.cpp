@@ -6,6 +6,8 @@
 #include "Engine/World.h"
 #include "InstancedActorsData.h"
 #include "InstancedActorsManager.h"
+#include "InstancedActorsSettings.h"
+#include "InstancedActorsSubsystem.h"
 #include "WorldPartition/WorldPartitionRuntimeCellInterface.h"
 
 DEFINE_LOG_CATEGORY(LogInstancedActorsCellTransformer);
@@ -21,6 +23,23 @@ bool UInstancedActorsCellTransformerBase::ShouldConvertActorToInstanced(const AA
 
 TSubclassOf<AInstancedActorsManager> UInstancedActorsCellTransformerBase::GetInstancedActorsManagerClass() const
 {
+	// Match the project's configured manager class (via settings -> subsystem CDO) instead of the base class.
+	// CDO-only, so it's valid at cook RCT time with no live world.
+	if (const UInstancedActorsProjectSettings* Settings = GetDefault<UInstancedActorsProjectSettings>())
+	{
+		const TSubclassOf<UInstancedActorsSubsystem> SubsystemClass = Settings->GetInstancedActorsSubsystemClass();
+		if (SubsystemClass)
+		{
+			if (const UInstancedActorsSubsystem* SubsystemCDO = SubsystemClass->GetDefaultObject<UInstancedActorsSubsystem>())
+			{
+				if (const TSubclassOf<AInstancedActorsManager> ManagerClass = SubsystemCDO->GetInstancedActorsManagerClass())
+				{
+					return ManagerClass;
+				}
+			}
+		}
+	}
+
 	return AInstancedActorsManager::StaticClass();
 }
 
@@ -100,17 +119,25 @@ void UInstancedActorsCellTransformerBase::Transform(ULevel* InLevel)
 		return;
 	}
 
-	const uint32 ManagerGridSize = ManagerClass.GetDefaultObject()->GetDefaultGridSize(World);
+	// Deterministic name embedding both the manager class and the WP cell, so the manager resolves to the same
+	// path every cook/PIE run (no MakeUniqueObjectName numeric suffix - that is what the persistence payload is
+	// keyed on). The class name is part of the name, so an existing manager at this name is assumed to be the
+	// right class and compatible: reuse it rather than creating a numbered duplicate.
+	const FName ManagerName(*FString::Printf(TEXT("%s_%s"), *ManagerClass->GetName(), *WorldPartitionCell->GetDebugName()));
 
-	const FString DesiredName = FString::Printf(TEXT("%s_%s"), *ManagerClass->GetName(), *WorldPartitionCell->GetDebugName());
-	const FName UniqueManagerName = MakeUniqueObjectName(InLevel, ManagerClass, FName(DesiredName));
-
-	AInstancedActorsManager* NewManager = NewObject<AInstancedActorsManager>(InLevel, ManagerClass, UniqueManagerName);
-	NewManager->SetGridSize(ManagerGridSize);
-	NewManager->SetLockLocation(true);
-
-	const FBox CellBounds = WorldPartitionCell->GetCellBounds();
-	NewManager->SetActorLocation(CellBounds.GetCenter());
+	AInstancedActorsManager* NewManager = FindObject<AInstancedActorsManager>(InLevel, *ManagerName.ToString());
+	if (NewManager)
+	{
+		UE_LOG(LogInstancedActorsCellTransformer, Log, TEXT("  Reusing existing manager '%s' in level '%s'"),
+			*ManagerName.ToString(), *InLevel->GetName());
+	}
+	else
+	{
+		NewManager = NewObject<AInstancedActorsManager>(InLevel, ManagerClass, ManagerName);
+		NewManager->SetGridSize(ManagerClass.GetDefaultObject()->GetDefaultGridSize(World));
+		NewManager->SetLockLocation(true);
+		NewManager->SetActorLocation(WorldPartitionCell->GetCellBounds().GetCenter());
+	}
 
 	// Populate the manager: one InstancedActorsData per source class, one instance per source actor transform.
 	int32 TotalInstances = 0;
