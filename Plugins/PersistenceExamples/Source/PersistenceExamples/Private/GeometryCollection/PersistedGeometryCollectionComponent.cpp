@@ -100,6 +100,14 @@ void UPersistedGeometryCollectionComponent::PostRestoreObject_Implementation(con
 		if (MutableDC->Active.IsValidIndex(RootIndex))
 		{
 			MutableDC->Active[RootIndex] = false;
+
+			// Also disable the root's game thread particle, so the intact shape doesn't remain in the game thread
+			// scene query structure, where it would block traces and character movement.
+			FGeometryCollectionPhysicsProxy* Proxy = GetPhysicsProxy();
+			if (FGeometryCollectionPhysicsProxy::FParticle* RootParticle = Proxy ? Proxy->GetParticleByIndex_External(RootIndex) : nullptr)
+			{
+				RootParticle->SetDisabled(true);
+			}
 		}
 	}
 	ForceBrokenForCustomRenderer(true);
