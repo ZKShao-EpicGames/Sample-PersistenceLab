@@ -57,6 +57,9 @@ UPersistenceSaveGame* UPersistenceGameSubsystem::LoadFromFile(const FString& Slo
 		return nullptr;
 	}
 
+	// Resume the saved game time once the world we travel to (which starts at time 0) begins.
+	GameTimeBeforeCurrentWorld = SaveGame->GameTime;
+
 	if (SaveGame->TravelData.Map.IsNull())
 	{
 		UE_LOG(LogPersistenceUtils, Log, TEXT("LoadFromFile: Loaded SaveGame from slot '%s' — no travel data, staying on current map."), *SlotName);
@@ -168,10 +171,23 @@ void UPersistenceGameSubsystem::ContinueSaveToFileToDisk()
 		return;
 	}
 
+	SaveGame->GameTime = GetGameTime();
 	UGameplayStatics::SaveGameToSlot(SaveGame, SaveGame->SlotName, SaveGame->UserIndex);
 
 	const double Elapsed = FPlatformTime::Seconds() - SaveStartTime;
 	UE_LOG(LogPersistenceUtils, Display, TEXT("Saved game to slot '%s' in %.1f seconds."), *SaveGame->SlotName, Elapsed);
+}
+
+double UPersistenceGameSubsystem::GetGameTime() const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UWorld* World = GameInstance ? GameInstance->GetWorld() : nullptr;
+	return GameTimeBeforeCurrentWorld + (World ? World->GetTimeSeconds() : 0.0);
+}
+
+void UPersistenceGameSubsystem::AccumulateWorldGameTime(const UWorld& World)
+{
+	GameTimeBeforeCurrentWorld += World.GetTimeSeconds();
 }
 
 void UPersistenceGameSubsystem::SetPersistenceTravelData(FPersistenceTravelData InTravelData)

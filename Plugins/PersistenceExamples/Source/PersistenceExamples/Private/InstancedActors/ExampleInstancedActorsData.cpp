@@ -128,7 +128,7 @@ void UExampleInstancedActorsData::ApplyPersistedStage(FMassEntityManager& Entity
 	StageFragment->Stage = static_cast<uint8>(FMath::Min<int32>(Stage, FMath::Max(Config->StageDurations.Num() - 1, 0)));
 	StageFragment->StageEndTime = Now + RemainingSeconds;
 
-	// Consume the real time that passed between saving and loading, possibly across multiple stages.
+	// Consume game time elapsed since saving, possibly across multiple stages.
 	ExampleIAStages::AdvanceStages(*StageFragment, Config->StageDurations, Now);
 
 	if (StageFragment->Stage == 0)

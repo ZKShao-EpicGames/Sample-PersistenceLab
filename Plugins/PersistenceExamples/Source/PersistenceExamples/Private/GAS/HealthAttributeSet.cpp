@@ -57,6 +57,12 @@ void UHealthAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCall
 
 		SetDamage(0.0f);
 	}
+	else if (Data.EvaluatedData.Attribute == GetHealthAttribute())
+	{
+		// Direct Health modifiers (e.g. heals) only get their current value clamped by PreAttributeChange. Clamp the base
+		// value too, so it can't exceed MaxHealth.
+		SetHealth(FMath::Clamp(GetHealth(), 0.0f, GetMaxHealth()));
+	}
 }
 
 void UHealthAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)

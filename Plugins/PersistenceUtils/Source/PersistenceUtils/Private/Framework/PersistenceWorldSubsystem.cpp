@@ -72,11 +72,9 @@ void UPersistenceWorldSubsystem::Initialize(FSubsystemCollectionBase& Collection
 	LevelMakingInvisibleHandle = FLevelStreamingDelegates::OnLevelBeginMakingInvisible.AddUObject(this, &UPersistenceWorldSubsystem::FlushInstancedActorManagerDataForLevel);
 	PreActorTickHandle = FWorldDelegates::OnWorldPreActorTick.AddUObject(this, &UPersistenceWorldSubsystem::OnWorldPreActorTick);
 
+	WorldBeginTearDownHandle = FWorldDelegates::OnWorldBeginTearDown.AddUObject(this, &UPersistenceWorldSubsystem::OnWorldBeginTearDown);
+
 	const UPersistenceUtilsSettings* Settings = GetDefault<UPersistenceUtilsSettings>();
-	if (Settings && Settings->bAutoSaveWhenLeavingMap)
-	{
-		WorldBeginTearDownHandle = FWorldDelegates::OnWorldBeginTearDown.AddUObject(this, &UPersistenceWorldSubsystem::OnWorldBeginTearDown);
-	}
 
 	UPersistenceGameSubsystem* PersistenceSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<UPersistenceGameSubsystem>();
 	const UPersistenceSaveGame* SaveGame = PersistenceSubsystem ? PersistenceSubsystem->GetSaveGame() : nullptr;
@@ -195,15 +193,22 @@ void UPersistenceWorldSubsystem::OnWorldBeginTearDown(UWorld* World)
 	UGameInstance* GameInstance = World->GetGameInstance();
 	const UPersistenceUtilsSettings* Settings = GetDefault<UPersistenceUtilsSettings>();
 	UPersistenceGameSubsystem* PersistenceSubsystem = GameInstance ? GameInstance->GetSubsystem<UPersistenceGameSubsystem>() : nullptr;
-	if (!PersistenceSubsystem || PersistenceSubsystem->IsTravelingFromSaveFile() || !Settings || !Settings->bAutoSaveWhenLeavingMap)
+	// When traveling from a save file, the loaded save's game time replaces this world's.
+	if (!PersistenceSubsystem || PersistenceSubsystem->IsTravelingFromSaveFile())
 	{
 		return;
 	}
 
-	// Synchronous flushes + (synchronously-completing) Mass flush. RequestSaveFlush detects World->bIsTearingDown
-	// internally and skips map travel data (game code triggering map travel owns the next-session start spot)
-	// and runs the Mass snapshot synchronously inside this broadcast. No completion callback needed.
-	RequestSaveFlush(FOnSaveFlushComplete::FDelegate{});
+	if (Settings && Settings->bAutoSaveWhenLeavingMap)
+	{
+		// Synchronous flushes + (synchronously-completing) Mass flush. RequestSaveFlush detects World->bIsTearingDown
+		// internally and skips map travel data (game code triggering map travel owns the next-session start spot)
+		// and runs the Mass snapshot synchronously inside this broadcast. No completion callback needed.
+		RequestSaveFlush(FOnSaveFlushComplete::FDelegate{});
+	}
+
+	// After the flush, so data flushed above is stamped with this world's final game time.
+	PersistenceSubsystem->AccumulateWorldGameTime(*World);
 }
 
 void UPersistenceWorldSubsystem::Deinitialize()

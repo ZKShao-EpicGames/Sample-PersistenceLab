@@ -24,6 +24,7 @@
 #include "MassRepresentationFragments.h"
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
+#include "Framework/PersistenceGameSubsystem.h"
 #include "Framework/PersistenceWorldSubsystem.h"
 
 namespace ExampleIAC
@@ -526,6 +527,15 @@ void UExampleInstancedActorComponent::SerializeInstancePersistenceData(FStructur
 	int32 NumStageOverrides = StageOverrides.Num();
 	if (Version >= FExampleInstancedActorVersion::StageTimers)
 	{
+		// Game time is comparable across sessions and map travel, unlike world time. Remaining times are reduced by the game
+		// time elapsed between saving and restoring, but not by real time while the game wasn't running (unlike TimeDelta).
+		const UGameInstance* GameInstance = InstanceData && InstanceData->GetWorld() ? InstanceData->GetWorld()->GetGameInstance() : nullptr;
+		const UPersistenceGameSubsystem* PersistenceSubsystem = GameInstance ? GameInstance->GetSubsystem<UPersistenceGameSubsystem>() : nullptr;
+		const double GameTimeNow = PersistenceSubsystem ? PersistenceSubsystem->GetGameTime() : 0.0;
+		double SavedGameTime = GameTimeNow;
+		Record << SA_VALUE(TEXT("SavedGameTime"), SavedGameTime);
+		const double ElapsedGameTime = FMath::Max(GameTimeNow - SavedGameTime, 0.0);
+
 		FStructuredArchive::FArray StageArray = Record.EnterArray(TEXT("StageOverrides"), NumStageOverrides);
 		if (Ar.IsSaving())
 		{
@@ -549,13 +559,9 @@ void UExampleInstancedActorComponent::SerializeInstancePersistenceData(FStructur
 				Entry << SA_VALUE(TEXT("InstanceIndex"), InstanceIndex);
 				Entry << SA_VALUE(TEXT("Stage"), Stage);
 				Entry << SA_VALUE(TEXT("RemainingSeconds"), RemainingSeconds);
-				// TimeDelta is the real time in seconds since this data was saved (AInstancedActorsManager::Serialize stores a
-				// UTC timestamp), both for loading a save file and for a level streaming back in. Subtracting it lets the stage
-				// countdown progress while the player was away; any excess carries over into further stages once applied in
-				// UExampleInstancedActorsData::OnSpawnEntities.
 				if (ExampleData)
 				{
-					ExampleData->StagePersistedStage(InstanceIndex.GetIndex(), Stage, RemainingSeconds - static_cast<double>(TimeDelta));
+					ExampleData->StagePersistedStage(InstanceIndex.GetIndex(), Stage, RemainingSeconds - ElapsedGameTime);
 				}
 			}
 		}

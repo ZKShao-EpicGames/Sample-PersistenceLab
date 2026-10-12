@@ -139,8 +139,9 @@ public:
 
 	// Treat visual states as stages: stage 0 is the resting state, and any other stage counts down towards 0, spending
 	// AdditionalVisualStates[Stage - 1].StageDuration seconds in each stage. Gameplay starts a cycle with SetStage /
-	// StartStageCycle on the server. The remaining time is persisted, and real time elapsed between saving and loading
-	// advances the stages on load.
+	// StartStageCycle on the server. Stages advance with game time only: the remaining time is persisted, and game time
+	// elapsed until it's restored (e.g. while its level was streamed out) still counts, but time while the game wasn't
+	// running doesn't.
 	UPROPERTY(EditAnywhere, Category = "InstancedActors|Stages",
 		meta = (EditCondition = "VisualDescriptionGenerationType == EVisualDescriptionGenerationType::PropertyConfigured"))
 	bool bUseStageTimers = false;

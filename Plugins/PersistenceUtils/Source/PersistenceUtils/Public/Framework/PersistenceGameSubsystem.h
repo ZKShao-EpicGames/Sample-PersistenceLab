@@ -45,6 +45,16 @@ public:
 
 	void SetPersistenceTravelData(FPersistenceTravelData InTravelData);
 
+	// Game time in seconds played with the active save, across all maps and sessions: the time of previously played worlds
+	// plus the current world's time. Advances only while a world runs (respecting pause and time dilation), and resumes
+	// from the saved value when loading a save, so time while the game wasn't running never counts. Unlike world
+	// timestamps, values are comparable across map travel and save/load, e.g. to measure game time elapsed since some
+	// data was saved.
+	double GetGameTime() const;
+
+	// Called by UPersistenceWorldSubsystem when a world is torn down, to carry its time over into GetGameTime.
+	void AccumulateWorldGameTime(const UWorld& World);
+
 	// Called by UPersistenceWorldSubsystem::OnWorldBeginPlay to mark travel-from-save-file as complete and trigger any post-arrival restoration.
 	void ReportTravelFromSaveFileComplete(UWorld* World);
 
@@ -57,6 +67,9 @@ private:
 	TObjectPtr<UPersistenceSaveGame> SaveGame;
 
 	bool bTravelingFromSaveFile = false;
+
+	// Game time of all worlds before the current one. See GetGameTime.
+	double GameTimeBeforeCurrentWorld = 0.0;
 
 	// Wall-clock start of the in-flight SaveToFile, captured before any flush work so the completion log
 	// can report total elapsed time including the async wait.

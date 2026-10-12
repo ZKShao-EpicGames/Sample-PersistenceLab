@@ -42,12 +42,12 @@ public:
 	void StagePersistedVisualization(int32 InstanceIndex, uint8 VisualizationIndex);
 	void StagePersistedHealth(int32 InstanceIndex, float Current, float Max);
 
-	// RemainingSeconds is the saved time left in Stage, minus the real time elapsed since saving. It may be negative, in
-	// which case the excess carries over into subsequent stages when applied (see ExampleIAStages::AdvanceStages).
+	// RemainingSeconds is the saved time left in Stage, minus the game time elapsed since saving. It may be negative, in
+	// which case the excess carries over into subsequent stages when applied in OnSpawnEntities.
 	void StagePersistedStage(int32 InstanceIndex, uint8 Stage, double RemainingSeconds);
 
 private:
-	// Applies a restored stage to a freshly spawned entity: fragment, catch-up, visualization, replication, timer tag.
+	// Applies a restored stage to a freshly spawned entity: fragment, visualization, replication, timer tag.
 	void ApplyPersistedStage(FMassEntityManager& EntityManager, FInstancedActorsInstanceIndex InstanceIndex, uint8 Stage, double RemainingSeconds, double Now);
 
 	struct FPendingStage

@@ -80,7 +80,7 @@ namespace ExampleIAStages
 	/**
 	 * Advances InOutStage towards 0 for as long as Now has passed its StageEndTime. Each next stage's end time is
 	 * accumulated from the previous end time rather than from Now, so excess time carries over into subsequent stages
-	 * (hitches, or real time elapsed between a save and a load). Returns true if the stage changed.
+	 * (hitches, or game time elapsed while a level was unloaded). Returns true if the stage changed.
 	 */
 	PERSISTENCEEXAMPLES_API bool AdvanceStages(FExampleStageFragment& InOutStage, TConstArrayView<float> StageDurations, double Now);
 

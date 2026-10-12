@@ -20,6 +20,10 @@ public:
 	UPROPERTY()
 	int32 UserIndex = 0;
 
+	// Game time in seconds played with this save across all maps and sessions, see UPersistenceGameSubsystem::GetGameTime.
+	UPROPERTY()
+	double GameTime = 0.0;
+
 	// Data required to restore the player's position after travelling to a map.
 	UPROPERTY()
 	FPersistenceTravelData TravelData;
