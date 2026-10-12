@@ -46,80 +46,8 @@ void AJumpBlock::OnVisualStateRestored_Implementation(int32 VisualStateIndex)
 
 void AJumpBlock::ApplyVisualState()
 {
-	// Mirror the IAC's ModifyMassEntityTemplate logic on the hydrated actor: for each of the actor's
-	// SMCs, look up its FName in the current visual state's override map and apply mesh + transform.
-	// Initial transforms are read from each SMC's archetype (the CDO's same-named default subobject for
-	// native components, the SCS template for BP-added components) so ApplyRelative always composes
-	// against the base, and no-override / state 0 restores cleanly.
-	// AdditionalVisualStates[K] configures visual state K+1; state 0 has no overrides (engine-built).
-	const TArray<FVisualStateSMCOverrides>& States = InstancedActorsComp->AdditionalVisualStates;
-	const TMap<FName, FVisualStateMeshOverride>* Overrides = nullptr;
-	const int32 EntryIndex = VisualState - 1;
-	if (EntryIndex >= 0 && States.IsValidIndex(EntryIndex))
-	{
-		Overrides = &States[EntryIndex].Overrides;
-	}
-
-	TArray<UStaticMeshComponent*> SMCs;
-	GetComponents<UStaticMeshComponent>(SMCs);
-	for (UStaticMeshComponent* SMC : SMCs)
-	{
-		if (!SMC)
-		{
-			continue;
-		}
-		// For the root component RelativeTransform is the actor's world transform — touching it would
-		// teleport the actor. Apply mesh/visibility to the root, but skip transform changes.
-		const bool bIsRoot = (SMC == GetRootComponent());
-		const UStaticMeshComponent* Archetype = Cast<UStaticMeshComponent>(SMC->GetArchetype());
-		const FTransform InitialTransform = Archetype ? Archetype->GetRelativeTransform() : FTransform::Identity;
-		const bool bArchetypeVisible = Archetype ? Archetype->IsVisible() : true;
-		const FVisualStateMeshOverride* Override = Overrides ? Overrides->Find(SMC->GetFName()) : nullptr;
-
-		if (Override)
-		{
-			SMC->SetVisibility(Override->bVisible);
-			if (!Override->bVisible)
-			{
-				continue;
-			}
-			if (Override->StaticMeshOverride)
-			{
-				SMC->SetStaticMesh(Override->StaticMeshOverride);
-			}
-			if (bIsRoot)
-			{
-				continue;
-			}
-			switch (Override->TransformModification)
-			{
-			case EVisualStateTransformModification::Override:
-				SMC->SetRelativeTransform(Override->TransformToApply);
-				break;
-			case EVisualStateTransformModification::ApplyRelative:
-				SMC->SetRelativeTransform(Override->TransformToApply * InitialTransform);
-				break;
-			case EVisualStateTransformModification::None:
-			default:
-				SMC->SetRelativeTransform(InitialTransform);
-				break;
-			}
-		}
-		else
-		{
-			// No override at this state — restore archetype mesh + visibility + transform in case a prior
-			// state modified them. Skip transform on the root for the same reason as above.
-			if (Archetype)
-			{
-				SMC->SetStaticMesh(Archetype->GetStaticMesh());
-			}
-			SMC->SetVisibility(bArchetypeVisible);
-			if (!bIsRoot)
-			{
-				SMC->SetRelativeTransform(InitialTransform);
-			}
-		}
-	}
+	// Mirrors the IAC's visual state overrides (mesh, visibility, transform per SMC name) onto this actor's SMCs.
+	InstancedActorsComp->ApplyVisualStateToOwner(VisualState);
 }
 
 // Update client-side visual after receiving the state via replication from the server-side actor.

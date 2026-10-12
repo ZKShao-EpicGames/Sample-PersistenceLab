@@ -8,6 +8,8 @@
 #include "ExampleInstancedActorComponent.generated.h"
 
 class UStaticMesh;
+struct FExampleStageFragment;
+struct FInstancedActorsVisualizationInfo;
 
 UINTERFACE(MinimalAPI, Blueprintable)
 class UExampleVisualStateRestorable : public UInterface
@@ -22,6 +24,7 @@ class PERSISTENCEEXAMPLES_API IExampleVisualStateRestorable
 public:
 	// Called by UExampleInstancedActorComponent::InitializeComponentForInstance to restore the actor's
 	// visual state from its Mass entity. Implementers should set whatever local state mirrors VisualStateIndex.
+	// For components using stage timers, also called whenever the stage changes, on the server and on clients.
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "InstancedActors")
 	void OnVisualStateRestored(int32 VisualStateIndex);
 	virtual void OnVisualStateRestored_Implementation(int32 VisualStateIndex) {}
@@ -59,6 +62,8 @@ struct FVisualStateMeshOverride
 	// If false, the SMC is hidden at this visual state. On the IA path the descriptor is omitted from
 	// the visualization (so no ISM instance is placed); on the hydrated actor the SMC's visibility flag
 	// is cleared. true = visible (matches no-override / state 0 behavior).
+	// Exception: if every SMC would be omitted, the descriptors are kept as hidden ISMs instead, because a
+	// visualization needs at least one ISM (e.g. the empty state of a picked up health pack).
 	UPROPERTY(EditAnywhere, Category = "InstancedActors")
 	bool bVisible = true;
 
@@ -82,13 +87,24 @@ struct FVisualStateSMCOverrides
 	// SMCs whose name isn't in the map are left untouched at this visual state.
 	UPROPERTY(EditAnywhere, Category = "InstancedActors")
 	TMap<FName, FVisualStateMeshOverride> Overrides;
+
+	// Only used when the component's bUseStageTimers is enabled. Seconds spent in this visual state (stage) before
+	// regressing to the previous one, i.e. AdditionalVisualStates[K] lasts StageDuration before becoming visual state K.
+	UPROPERTY(EditAnywhere, Category = "InstancedActors", meta = (ClampMin = "0", Units = "Seconds"))
+	float StageDuration = 5.f;
 };
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnInstanceStageChanged, int32, NewStage);
 
 /**
  * Reusable instanced-actor component for the PersistenceLab demos. Supports:
  *  - Data-driven multi-state visualization (mesh + relative transform per mesh, multiple meshes per state).
  *  - Optional GAS health sync: pushes FHealthFragment <-> UHealthAttributeSet on hydrate / EndPlay.
- *  - Sparse persistence of viz/health deltas vs. the IAD defaults.
+ *  - Optional stage timers: visual states as stages that count down to 0 over time, both while hydrated (actor) and
+ *    dehydrated (Mass entity, see UExampleStageTimerProcessor). E.g. respawning pickups and regrowing harvestables.
+ *  - Optional spinning: a visual child component spins as a function of time, and so do the dehydrated ISM instances
+ *    (see AExampleInstancedActorsManager).
+ *  - Sparse persistence of viz/health/stage deltas vs. the IAD defaults.
  *
  * The owning actor must implement IAbilitySystemInterface and own a UHealthAttributeSet
  * when bSupportsHealth is true.
@@ -99,6 +115,8 @@ class PERSISTENCEEXAMPLES_API UExampleInstancedActorComponent : public UInstance
 	GENERATED_BODY()
 
 public:
+	UExampleInstancedActorComponent();
+
 	UPROPERTY(EditAnywhere, Category = "InstancedActors|Visualization")
 	EVisualDescriptionGenerationType VisualDescriptionGenerationType = EVisualDescriptionGenerationType::Default;
 
@@ -109,8 +127,41 @@ public:
 		meta = (EditCondition = "VisualDescriptionGenerationType == EVisualDescriptionGenerationType::PropertyConfigured"))
 	TArray<FVisualStateSMCOverrides> AdditionalVisualStates;
 
+	// Automatically applies the current visual state's AdditionalVisualStates overrides to the owner's StaticMeshComponents
+	// (see ApplyVisualStateToOwner): on hydration, and on every stage change on server and clients. Leave off if the
+	// owner applies visual states itself.
+	UPROPERTY(EditAnywhere, Category = "InstancedActors|Visualization",
+		meta = (EditCondition = "VisualDescriptionGenerationType == EVisualDescriptionGenerationType::PropertyConfigured"))
+	bool bApplyVisualStatesToOwner = false;
+
 	UPROPERTY(EditAnywhere, Category = "InstancedActors|Health")
 	bool bSupportsHealth = false;
+
+	// Treat visual states as stages: stage 0 is the resting state, and any other stage counts down towards 0, spending
+	// AdditionalVisualStates[Stage - 1].StageDuration seconds in each stage. Gameplay starts a cycle with SetStage /
+	// StartStageCycle on the server. The remaining time is persisted, and real time elapsed between saving and loading
+	// advances the stages on load.
+	UPROPERTY(EditAnywhere, Category = "InstancedActors|Stages",
+		meta = (EditCondition = "VisualDescriptionGenerationType == EVisualDescriptionGenerationType::PropertyConfigured"))
+	bool bUseStageTimers = false;
+
+	// Spins the component named SpinningComponentName around the world up axis as a function of time. Dehydrated ISM
+	// instances of that component spin identically. The rotation is shared by all instances (any placed rotation of the
+	// spinning component is ignored), so author it with no relative rotation.
+	UPROPERTY(EditAnywhere, Category = "InstancedActors|Spin")
+	bool bSpin = false;
+
+	// Name of the (visual only) StaticMeshComponent to spin, as it appears on the actor. Must not be the root component.
+	UPROPERTY(EditAnywhere, Category = "InstancedActors|Spin", meta = (EditCondition = "bSpin"))
+	FName SpinningComponentName;
+
+	UPROPERTY(EditAnywhere, Category = "InstancedActors|Spin", meta = (EditCondition = "bSpin", Units = "DegreesPerSecond"))
+	float SpinDegreesPerSecond = 90.f;
+
+	// Fires on the server and clients whenever the stage changes. Also fires once on the tick after BeginPlay with the
+	// initial stage, so that bindings made in the owner's BeginPlay receive it.
+	UPROPERTY(BlueprintAssignable, Category = "InstancedActors|Stages")
+	FOnInstanceStageChanged OnStageChanged;
 
 	// UInstancedActorsComponent
 	virtual void ModifyMassEntityConfig(FMassEntityManager& InMassEntityManager, UInstancedActorsData* InstancedActorData, FMassEntityConfig& InOutMassEntityConfig) const override;
@@ -121,11 +172,21 @@ public:
 	virtual void SerializeInstancePersistenceData(FStructuredArchive::FRecord Record, UInstancedActorsData* InstanceData, int64 TimeDelta) const override;
 
 	// UActorComponent
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	// Switch this instance's visual state. Updates both server and (with the client workaround) client.
 	UFUNCTION(BlueprintCallable, Category = "InstancedActors")
 	void NotifyVisualStateChanged(int32 NewVisualState);
+
+	// Mirrors ModifyMassEntityTemplate on the hydrated actor: for each of the owner's StaticMeshComponents, looks up its
+	// FName in AdditionalVisualStates[VisualState - 1].Overrides and applies visibility, mesh and transform. Components
+	// without an override (and all components at state 0) are restored to their archetype's mesh, visibility and transform.
+	// Purely local; call it on server and clients alike.
+	UFUNCTION(BlueprintCallable, Category = "InstancedActors|Visualization")
+	void ApplyVisualStateToOwner(int32 VisualState);
 
 	// Push the current health/max-health into the entity's FHealthFragment immediately (in addition to
 	// the EndPlay flush). Call this when health changes are infrequent or you want save-time accuracy.
@@ -142,5 +203,50 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "InstancedActors")
 	void EjectInstance();
 
+	// Server only. Sets the stage (clamped to [0, GetNumStages() - 1]) and starts its countdown. Updates the Mass entity,
+	// the ISM visualization used once dehydrated, and replicates the stage to clients.
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "InstancedActors|Stages")
+	void SetStage(int32 NewStage);
+
+	// Server only. Sets the last stage, e.g. "picked up" / "harvested", starting the countdown back to stage 0.
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "InstancedActors|Stages")
+	void StartStageCycle();
+
+	// Current stage. On clients, this is the last stage replicated by the server.
+	UFUNCTION(BlueprintPure, Category = "InstancedActors|Stages")
+	int32 GetStage() const { return CurrentStage; }
+
+	UFUNCTION(BlueprintPure, Category = "InstancedActors|Stages")
+	int32 GetNumStages() const;
+
 	FDelegateHandle PreIAMFlushHandle;
+
+protected:
+	UFUNCTION()
+	void OnRep_CurrentStage();
+
+private:
+	TArray<float> GetStageDurations() const;
+	FExampleStageFragment* GetStageFragment() const;
+
+	// Server: applies CurrentStage = NewStage (with StageEndTime already set) to the Mass entity, visualization, replication,
+	// owner notifications and the countdown timer.
+	void CommitStage(uint8 NewStage);
+	void ScheduleStageTimer();
+	void OnStageTimerElapsed();
+	void NotifyOwnerOfStage();
+
+	// Registers spinning ISMs with the manager, and disables collision on hidden ISMs.
+	void ConfigureVisualizationISMComponents(UInstancedActorsData& InstanceData, const FInstancedActorsVisualizationInfo& Visualization) const;
+
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_CurrentStage)
+	uint8 CurrentStage = 0;
+
+	// Server only: world time at which CurrentStage advances. Mirrors FExampleStageFragment::StageEndTime.
+	double StageEndTime = 0.0;
+
+	FTimerHandle StageTimerHandle;
+
+	UPROPERTY(Transient)
+	TObjectPtr<USceneComponent> SpinningComponent;
 };

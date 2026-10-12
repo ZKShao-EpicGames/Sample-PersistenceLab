@@ -23,6 +23,10 @@ struct FExampleInstancedActorVersion
 		// (matches the prior manual PersistenceFormatVersion == 1).
 		InitialVersion,
 
+		// Appends StageOverrides[] { InstanceIndex, Stage, RemainingSeconds } for stage timers (respawn / regrow).
+		// Instances with a stage record have no VisualizationOverrides entry: their visualization follows the stage.
+		StageTimers,
+
 		// ---- new versions go above this line ----
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1
