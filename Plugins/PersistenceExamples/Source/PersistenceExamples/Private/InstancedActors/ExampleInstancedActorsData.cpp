@@ -24,12 +24,6 @@ void UExampleInstancedActorsData::ApplyInstanceDelta(FMassEntityManager& EntityM
 		return;
 	}
 
-	// The only piece of replicated state we can use to recover Visual State is the lifecycle phase.
-	if (!InstanceDelta.HasCurrentLifecyclePhase())
-	{
-		return;
-	}
-
 	// On the server/standalone the gameplay-driven path (UExampleInstancedActorComponent, UExampleStageTimerProcessor)
 	// already swaps the mesh, so only clients need to act on the replicated phase.
 	AInstancedActorsManager* Manager = GetManager();
@@ -38,10 +32,23 @@ void UExampleInstancedActorsData::ApplyInstanceDelta(FMassEntityManager& EntityM
 		return;
 	}
 
-	// Convention: visualization index == lifecycle phase index (see class comment). Applied synchronously, since the
+	// Convention: visualization index == lifecycle phase index (see class comment). A delta without a phase means the phase
+	// was removed while the delta kept other data, i.e. back to the default visualization. Applied synchronously, since the
 	// engine's deferred visualization switch is consumed by a server-only processor. See ExampleIAStages::SwitchInstanceVisualization.
-	const uint8 PhaseIndex = InstanceDelta.GetCurrentLifecyclePhaseIndex();
+	const uint8 PhaseIndex = InstanceDelta.HasCurrentLifecyclePhase() ? InstanceDelta.GetCurrentLifecyclePhaseIndex() : 0;
 	ExampleIAStages::SwitchInstanceVisualization(*this, EntityManager, GetEntity(InstanceDelta.GetInstanceIndex()), PhaseIndex);
+}
+
+void UExampleInstancedActorsData::RollbackInstanceDelta(FMassEntityManager& EntityManager, const FInstancedActorsDelta& InstanceDelta)
+{
+	Super::RollbackInstanceDelta(EntityManager, InstanceDelta);
+
+	// Clients only: the server removed the whole delta, e.g. because the instance returned to its default phase. Revert to
+	// visualization 0.
+	if (!InstanceDelta.IsDestroyed() && InstanceDelta.HasCurrentLifecyclePhase())
+	{
+		ExampleIAStages::SwitchInstanceVisualization(*this, EntityManager, GetEntity(InstanceDelta.GetInstanceIndex()), 0);
+	}
 }
 
 void UExampleInstancedActorsData::OnSpawnEntities()

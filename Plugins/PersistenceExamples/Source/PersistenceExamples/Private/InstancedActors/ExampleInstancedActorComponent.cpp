@@ -394,7 +394,7 @@ void UExampleInstancedActorComponent::SerializeInstancePersistenceData(FStructur
 	if (Ar.IsLoading() && Version < FExampleInstancedActorVersion::InitialVersion)
 	{
 		UE_LOG(LogPersistenceExamples, Warning,
-			TEXT("ExampleInstancedActorComponent: unsupported persistence version %d (expected >= %d) — skipping record."),
+			TEXT("ExampleInstancedActorComponent: unsupported persistence version %d (expected >= %d), skipping record."),
 			Version, static_cast<int32>(FExampleInstancedActorVersion::InitialVersion));
 	}
 
@@ -567,9 +567,13 @@ void UExampleInstancedActorComponent::SerializeInstancePersistenceData(FStructur
 		}
 	}
 
+	// The IAD's instance delta list: destroyed deltas are serialized by AInstancedActorsManager before this record. Lifecycle
+	// phase deltas are replicated, not serialized; on load they're restored from the stage records once entities spawn.
+	const FInstancedActorsDeltaList* Deltas = InstanceData ? &InstanceData->GetInstanceDeltaList() : nullptr;
 	UE_LOG(LogPersistenceExamples, Log,
-		TEXT("ExampleIAC SerializeInstancePersistenceData [%s] Viz: %d override(s), Health: %d override(s), Stage: %d override(s)"),
-		Ar.IsSaving() ? TEXT("Save") : TEXT("Load"), NumVizOverrides, NumHealthOverrides, NumStageOverrides);
+		TEXT("ExampleIAC SerializeInstancePersistenceData [%s] %s: Viz: %d override(s), Health: %d override(s), Stage: %d override(s). Instance deltas: %d (destroyed: %d, lifecycle phase: %d)"),
+		Ar.IsSaving() ? TEXT("Save") : TEXT("Load"), *GetNameSafe(InstanceData), NumVizOverrides, NumHealthOverrides, NumStageOverrides,
+		Deltas ? Deltas->GetInstanceDeltas().Num() : 0, Deltas ? Deltas->GetNumDestroyedInstanceDeltas() : 0, Deltas ? Deltas->GetNumLifecyclePhaseDeltas() : 0);
 }
 
 void UExampleInstancedActorComponent::NotifyVisualStateChanged(int32 NewVisualState)
@@ -592,12 +596,11 @@ void UExampleInstancedActorComponent::NotifyVisualStateChanged(int32 NewVisualSt
 	const FInstancedActorsInstanceIndex InstanceIndex = InstanceHandle.GetInstanceIndex();
 	ExampleIAStages::SwitchInstanceVisualization(*InstanceData, GetMassEntityManagerChecked(), GetMassEntityHandle(), static_cast<uint8>(NewVisualState));
 
-	// Server: record the new visualization index as the instance's lifecycle phase. This is the producer
-	// for late-joining-client replication: SetInstanceCurrentLifecyclePhase flushes net dormancy and writes
-	// into the replicated InstanceDeltas FastArray, so the phase reaches ALL clients (incl. late joiners)
-	// and survives this actor dehydrating. Convention: viz index == lifecycle phase index. The base
-	// ApplyInstanceDelta ignores the phase on the server (it only acts on destruction), so this has no
-	// server-side gameplay effect; UExampleInstancedActorsData::ApplyInstanceDelta consumes it client-side.
+	// Server: record the new visualization index as the instance's lifecycle phase (or remove it for visualization 0). This
+	// is the producer for late-joining-client replication: the replicated InstanceDeltas FastArray reaches ALL clients
+	// (incl. late joiners) and survives this actor dehydrating. Convention: viz index == lifecycle phase index. The base
+	// ApplyInstanceDelta ignores the phase on the server (it only acts on destruction), so this has no server-side gameplay
+	// effect; UExampleInstancedActorsData consumes it client-side.
 	ExampleIAStages::ReplicateStage(*InstanceData, InstanceIndex, static_cast<uint8>(NewVisualState));
 }
 
@@ -628,7 +631,7 @@ void UExampleInstancedActorComponent::ApplyVisualStateToOwner(int32 VisualState)
 		{
 			continue;
 		}
-		// For the root component RelativeTransform is the actor's world transform — touching it would
+		// For the root component RelativeTransform is the actor's world transform; touching it would
 		// teleport the actor. Apply mesh/visibility to the root, but skip transform changes.
 		const bool bIsRoot = (SMC == Owner->GetRootComponent());
 		const UStaticMeshComponent* Archetype = Cast<UStaticMeshComponent>(SMC->GetArchetype());
@@ -667,7 +670,7 @@ void UExampleInstancedActorComponent::ApplyVisualStateToOwner(int32 VisualState)
 		}
 		else
 		{
-			// No override at this state — restore archetype mesh + visibility + transform in case a prior
+			// No override at this state: restore archetype mesh + visibility + transform in case a prior
 			// state modified them. Skip transform on the root for the same reason as above.
 			if (Archetype)
 			{

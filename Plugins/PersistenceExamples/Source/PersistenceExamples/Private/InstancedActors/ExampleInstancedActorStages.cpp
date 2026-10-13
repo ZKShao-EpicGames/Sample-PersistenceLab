@@ -126,9 +126,18 @@ namespace ExampleIAStages
 
 	void ReplicateStage(UInstancedActorsData& InstanceData, FInstancedActorsInstanceIndex InstanceIndex, uint8 Stage)
 	{
-		// SetInstanceCurrentLifecyclePhase asserts on authority.
+		// Both delta functions assert on authority.
 		const AInstancedActorsManager* Manager = InstanceData.GetManager();
-		if (Manager && Manager->HasAuthority())
+		if (!Manager || !Manager->HasAuthority())
+		{
+			return;
+		}
+
+		if (Stage == 0)
+		{
+			InstanceData.RemoveInstanceLifecyclePhaseDelta(InstanceIndex);
+		}
+		else
 		{
 			InstanceData.SetInstanceCurrentLifecyclePhase(InstanceIndex, Stage);
 		}
