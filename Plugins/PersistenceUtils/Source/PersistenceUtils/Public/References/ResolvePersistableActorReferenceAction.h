@@ -12,7 +12,7 @@ class AActor;
 /**
  * Latent Blueprint node that resolves a FPersistableActorReference into a live AActor*. The standard "Then" exec
  * output fires immediately after the node starts (use it to do unrelated work in parallel). OnSuccess fires once
- * with the resolved actor — synchronously from the node if already resolvable, deferred until the owning level's
+ * with the resolved actor: synchronously from the node if already resolvable, deferred until the owning level's
  * LSP PostRestoreLevel otherwise. OnFailure fires if resolution is definitively impossible (level finished
  * restoring without a match, world torn down, or the reference is None).
  */

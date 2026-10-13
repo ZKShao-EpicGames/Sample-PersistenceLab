@@ -15,7 +15,7 @@
  * On PostRestoreObject the component registers itself with UPersistableActorReferenceManager keyed by
  * that previous-session identity, even when the owner's runtime FName has changed (e.g., respawned runtime actors).
  *
- * Map-placed actors don't need this component — their FName is stable from the asset and resolves via level scan.
+ * Map-placed actors don't need this component; their FName is stable from the asset and resolves via level scan.
  * Use it when (a) the actor is runtime-spawned (name not stable across sessions), or (b) the actor may be ejected
  * and respawned at runtime by LSP and other code holds references to it.
  */

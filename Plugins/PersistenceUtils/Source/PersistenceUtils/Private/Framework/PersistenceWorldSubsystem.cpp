@@ -40,7 +40,7 @@ bool UPersistenceWorldSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 	}
 
 	// Only game worlds are saveable. Clients are excluded: we assume all saving happens on the authority.
-	// TODO: Investigate — GetNetMode() may not be reliable at ShouldCreateSubsystem time (net driver not yet assigned),
+	// TODO: Investigate. GetNetMode() may not be reliable at ShouldCreateSubsystem time (net driver not yet assigned),
 	// meaning the NM_Client check may not correctly exclude client worlds in PIE with a dedicated server.
 	UWorld* World = Cast<UWorld>(Outer);
 	if (!World || !World->IsGameWorld() || (World->IsNetMode(NM_Client)))
@@ -229,7 +229,7 @@ void UPersistenceWorldSubsystem::Deinitialize()
 
 void UPersistenceWorldSubsystem::OnWorldActorsInitialized(const UWorld::FActorsInitializedParams& Params)
 {
-	// Only act on our own world — FWorldDelegates is global and fires for every world that initializes.
+	// Only act on our own world; FWorldDelegates is global and fires for every world that initializes.
 	if (Params.World != GetWorld())
 	{
 		return;
@@ -280,7 +280,7 @@ void UPersistenceWorldSubsystem::FlushLevelStreamingPersistenceData()
 	if (PersistenceManager && PersistenceManager->SerializeTo(WorldSerializedSaveData, true))
 	{
 		const FName MapKey = GetWorld()->GetOutermost()->GetFName();
-		UE_LOG(LogPersistenceUtils, Log, TEXT("UpdateAndFlushStreamingLevelData: Serialized streaming level data for '%s' — %d bytes."), *MapKey.ToString(), WorldSerializedSaveData.Num());
+		UE_LOG(LogPersistenceUtils, Log, TEXT("UpdateAndFlushStreamingLevelData: Serialized streaming level data for '%s' (%d bytes)."), *MapKey.ToString(), WorldSerializedSaveData.Num());
 		PersistenceSubsystem->SetStreamingLevelDataForMap(MapKey, MoveTemp(WorldSerializedSaveData));
 	}
 	else
@@ -348,7 +348,7 @@ void UPersistenceWorldSubsystem::FlushMapTravelData()
 	const FRotator ControlRot = TravelData.ControlRotation;
 	PersistenceSubsystem->SetPersistenceTravelData(MoveTemp(TravelData));
 
-	UE_LOG(LogPersistenceUtils, Log, TEXT("UpdateAndFlushTravelData: Travel data set for '%s' — Pawn transform: %s, Control rotation: %s."),
+	UE_LOG(LogPersistenceUtils, Log, TEXT("UpdateAndFlushTravelData: Travel data set for '%s'. Pawn transform: %s, Control rotation: %s."),
 		*GetWorld()->GetMapName(),
 		bHasPawnTransform ? *FString::Printf(TEXT("(%.1f, %.1f, %.1f)"), PawnLoc.X, PawnLoc.Y, PawnLoc.Z) : TEXT("not captured"),
 		bHasControlRotation ? *FString::Printf(TEXT("(P=%.1f, Y=%.1f, R=%.1f)"), ControlRot.Pitch, ControlRot.Yaw, ControlRot.Roll) : TEXT("not captured"));
@@ -410,7 +410,7 @@ void UPersistenceWorldSubsystem::FlushInstancedActorManagerDataForLevel(UWorld* 
 
 		if (BodyWriter.IsError() || BodyData.Num() == 0)
 		{
-			UE_LOG(LogPersistenceUtils, Warning, TEXT("FlushInstancedActorManagerDataForLevel: Skipping manager '%s' — serialize produced no data or errored."), *Manager->GetName());
+			UE_LOG(LogPersistenceUtils, Warning, TEXT("FlushInstancedActorManagerDataForLevel: Skipping manager '%s': serialize produced no data or errored."), *Manager->GetName());
 			continue;
 		}
 
@@ -435,7 +435,7 @@ void UPersistenceWorldSubsystem::FlushInstancedActorManagerDataForLevel(UWorld* 
 		}
 		else
 		{
-			UE_LOG(LogPersistenceUtils, Warning, TEXT("FlushInstancedActorManagerDataForLevel: Skipping manager '%s' — failed to assemble versioned blob."), *Manager->GetName());
+			UE_LOG(LogPersistenceUtils, Warning, TEXT("FlushInstancedActorManagerDataForLevel: Skipping manager '%s': failed to assemble versioned blob."), *Manager->GetName());
 		}
 	}
 }
@@ -569,8 +569,8 @@ void UPersistenceWorldSubsystem::RequestSaveFlush(FOnSaveFlushComplete::FDelegat
 	}
 	bSaveFlushInProgress = true;
 
-	// Synchronous work that doesn't touch Mass fragments. Map travel data is captured only on explicit saves
-	// — on teardown, the game code that triggered the map change owns the next-session start spot.
+	// Synchronous work that doesn't touch Mass fragments. Map travel data is captured only on explicit saves.
+	// On teardown, the game code that triggered the map change owns the next-session start spot.
 	// Level-streaming persistence serializes actor UPROPERTYs and is independent of Mass.
 	UWorld* World = GetWorld();
 	if (World && !World->bIsTearingDown)

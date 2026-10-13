@@ -121,7 +121,7 @@ public:
 	EVisualDescriptionGenerationType VisualDescriptionGenerationType = EVisualDescriptionGenerationType::Default;
 
 	// Configures visual states 1..N (state 0 is engine-built from the exemplar's StaticMeshComponents via
-	// FromActor and needs no entry). AdditionalVisualStates[K] configures visual state K+1 — derived in
+	// FromActor and needs no entry). AdditionalVisualStates[K] configures visual state K+1, derived in
 	// ModifyMassEntityTemplate by copying state 0's descriptors and applying the per-SMC-name overrides here.
 	UPROPERTY(EditAnywhere, Category = "InstancedActors|Visualization",
 		meta = (EditCondition = "VisualDescriptionGenerationType == EVisualDescriptionGenerationType::PropertyConfigured"))
@@ -200,7 +200,7 @@ public:
 
 	// Unlinks the actor from Mass and marks the instance as destroyed (so the IAM won't respawn it),
 	// but leaves the actor alive in the world to persist itself. Use this when an instance transitions
-	// from managed to free — e.g., a crate that fractures and needs Chaos to take over the pieces.
+	// from managed to free, e.g. a crate that fractures and needs Chaos to take over the pieces.
 	UFUNCTION(BlueprintCallable, Category = "InstancedActors")
 	void EjectInstance();
 

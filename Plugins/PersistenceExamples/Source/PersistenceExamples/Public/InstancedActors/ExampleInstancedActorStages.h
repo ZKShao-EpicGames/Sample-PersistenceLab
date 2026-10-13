@@ -108,7 +108,8 @@ namespace ExampleIAStages
 	// Convenience overload that looks up the entity's fragments.
 	PERSISTENCEEXAMPLES_API void SwitchInstanceVisualization(UInstancedActorsData& InstanceData, FMassEntityManager& EntityManager, FMassEntityHandle EntityHandle, uint8 VisualizationIndex);
 
-	// Server: replicates the stage to clients through the IAD's lifecycle phase delta. Phase 0 is set explicitly (rather than
-	// removing the delta) because UExampleInstancedActorsData::ApplyInstanceDelta only reacts to deltas that carry a phase.
+	// Server: replicates the stage to clients through the IAD's lifecycle phase delta. Stage 0 (the default) removes the
+	// phase delta instead, keeping the replicated delta list sparse. Clients then revert to visualization 0 in
+	// UExampleInstancedActorsData::RollbackInstanceDelta / ApplyInstanceDelta.
 	PERSISTENCEEXAMPLES_API void ReplicateStage(UInstancedActorsData& InstanceData, FInstancedActorsInstanceIndex InstanceIndex, uint8 Stage);
 }

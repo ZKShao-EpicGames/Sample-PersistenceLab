@@ -48,7 +48,7 @@ public:
 
 	/**
 	 * Latest actor-authored state. Written to fragments on flush. Update either continuously or in
-	 * OnFlushPending. Note: this writes EVERY field, including bNavTargetValid — prefer the narrow
+	 * OnFlushPending. Note: this writes EVERY field, including bNavTargetValid. Prefer the narrow
 	 * SetPendingNavTarget / ClearPendingNavTarget helpers below when only the nav target is changing.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "NPC|Mass")
@@ -68,7 +68,7 @@ public:
 	}
 
 	/**
-	 * Clear the navigation target — entity stands at its last position when dehydrated instead of
+	 * Clear the navigation target: the entity stands at its last position when dehydrated instead of
 	 * path-following. Writes only the NavTarget / bNavTargetValid fields; health and state id are
 	 * untouched.
 	 */
@@ -95,7 +95,7 @@ private:
 	 * in UMassActorSubsystem), schedules a retry next tick up to MaxHydrationRetries.
 	 *
 	 * Needed because UMassRepresentationActorManagement::OnPostActorSpawn registers the mapping
-	 * AFTER World->SpawnActor returns — i.e. after the actor's BeginPlay already fired.
+	 * AFTER World->SpawnActor returns, i.e. after the actor's BeginPlay already fired.
 	 */
 	void AttemptHydration(int32 RetriesRemaining);
 

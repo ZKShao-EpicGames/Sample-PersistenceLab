@@ -76,14 +76,14 @@ void APersistedMassSpawner::StampOriginFragmentOnSpawnedEntities()
 
 		if (!ResolvedConfig)
 		{
-			UE_LOG(LogPersistenceUtils, Warning, TEXT("%s: Could not resolve config asset for template %s — origin fragment not stamped on %d entities."),
+			UE_LOG(LogPersistenceUtils, Warning, TEXT("%s: Could not resolve config asset for template %s, origin fragment not stamped on %d entities."),
 				*GetName(), *Spawned.TemplateID.ToString(), Spawned.Entities.Num());
 			continue;
 		}
 
 		// Direct set on the existing fragment, no archetype migration. The trait UPersistableEntityConfigTrait
 		// is responsible for placing the fragment into the archetype at template build time. Entities whose
-		// config doesn't include the trait won't have the fragment — they're simply not persistable, no warning.
+		// config doesn't include the trait won't have the fragment; they're simply not persistable, no warning.
 		for (FMassEntityHandle Entity : Spawned.Entities)
 		{
 			if (FPersistableEntityConfigFragment* Origin = EntityManager.GetFragmentDataPtr<FPersistableEntityConfigFragment>(Entity))

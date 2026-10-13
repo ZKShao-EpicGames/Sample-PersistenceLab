@@ -42,12 +42,12 @@ public:
 	DECLARE_MULTICAST_DELEGATE(FOnSaveFlushComplete);
 
 	// Flushes all live state into the SaveGame in preparation for a disk write or world teardown.
-	// Synchronous work that doesn't touch Mass fragments runs inline: map travel data (skipped on teardown
-	// — the game code triggering the map change owns the next-session start spot) and level-streaming
-	// persistence data. Work that DOES touch Mass fragments — the OnPreFlushMassEntityData broadcast, IAM
-	// serialization, and the Mass entity snapshot itself — is deferred to the next FrameEnd phase boundary
+	// Synchronous work that doesn't touch Mass fragments runs inline: map travel data (skipped on teardown,
+	// since the game code triggering the map change owns the next-session start spot) and level-streaming
+	// persistence data. Work that DOES touch Mass fragments (the OnPreFlushMassEntityData broadcast, IAM
+	// serialization, and the Mass entity snapshot itself) is deferred to the next FrameEnd phase boundary
 	// via UMassPersistenceUtils::SnapshotEntities, or runs synchronously on world teardown.
-	// OnComplete fires once that phase-quiescent work completes — possibly before this function returns when
+	// OnComplete fires once that phase-quiescent work completes, possibly before this function returns when
 	// the flush is synchronous (teardown, or no Mass simulation present).
 	// Concurrent callers piggy-back on the in-flight broadcast.
 	void RequestSaveFlush(FOnSaveFlushComplete::FDelegate OnComplete);
@@ -84,7 +84,7 @@ private:
 	void OnWorldPreActorTick(UWorld* World, ELevelTick TickType, float DeltaSeconds);
 
 	// Called by FWorldDelegates::OnWorldBeginTearDown before actors and subsystems have ended play.
-	// This is where IAM/Mass state is flushed — by OnWorldEndPlay the IAMs have already deinitialized.
+	// This is where IAM/Mass state is flushed; by OnWorldEndPlay the IAMs have already deinitialized.
 	void OnWorldBeginTearDown(UWorld* World);
 
 	// Phase 1: deserialize a single AInstancedActorsManager's saved bytes into its IADs. Must run after

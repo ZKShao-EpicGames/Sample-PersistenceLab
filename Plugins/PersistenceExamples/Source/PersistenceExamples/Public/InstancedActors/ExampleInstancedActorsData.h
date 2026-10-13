@@ -17,7 +17,8 @@
  * The base ApplyInstanceDelta receives that phase index but only ever acts on destruction, silently ignoring it.
  *
  * This subclass closes that gap: on the client it maps the replicated lifecycle phase to a visualization and
- * applies the ISM mesh switch synchronously - no custom replication required.
+ * applies the ISM mesh switch synchronously - no custom replication required. Instances in their default state
+ * (visualization 0) carry no phase delta; when the server removes one, clients revert to visualization 0.
  *
  * Convention: visualization indices must be ordered to match lifecycle phase indices (phase N -> visualization N).
  * This is enforced at IAD setup time by the order visualizations are registered (see
@@ -33,6 +34,7 @@ class PERSISTENCEEXAMPLES_API UExampleInstancedActorsData : public UInstancedAct
 public:
 	//~ Begin UInstancedActorsData Overrides
 	virtual void ApplyInstanceDelta(FMassEntityManager& EntityManager, const FInstancedActorsDelta& InstanceDelta, TArray<FInstancedActorsInstanceIndex>& OutEntitiesToRemove) override;
+	virtual void RollbackInstanceDelta(FMassEntityManager& EntityManager, const FInstancedActorsDelta& InstanceDelta) override;
 	virtual void OnSpawnEntities() override;
 	//~ End UInstancedActorsData Overrides
 

@@ -16,7 +16,7 @@ class ULevel;
  * Per-world registry that translates a (LevelPath, previous-session actor FName) pair into a live actor pointer.
  *
  * Runtime-spawned actors that opt in via UPersistableReferencedActorComponent self-register here on PostRestoreObject.
- * Map-placed actors don't need the component — the manager falls back to scanning the owning level's Actors array
+ * Map-placed actors don't need the component; the manager falls back to scanning the owning level's Actors array
  * by FName when the registry doesn't have a match.
  *
  * Resolution is the authoritative answer once the owning level's LSP PostRestoreLevel has fired; pending callbacks
@@ -40,7 +40,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Persistence", meta=(DefaultToSelf="Actor"))
 	static FPersistableActorReference MakePersistableActorReference(AActor* Actor);
 
-	/** Blueprint helper: synchronous resolve. Returns nullptr if not (yet) resolvable — use the latent ResolvePersistableActorReference action when you want to wait. */
+	/** Blueprint helper: synchronous resolve. Returns nullptr if not (yet) resolvable. Use the latent ResolvePersistableActorReference action when you want to wait. */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Persistence", meta=(WorldContext="WorldContextObject"))
 	static AActor* ResolvePersistableActorReferenceImmediate(UObject* WorldContextObject, const FPersistableActorReference& Reference);
 
@@ -61,7 +61,7 @@ public:
 	 * Fires Callback synchronously if the actor is already resolvable; otherwise defers until the owning level's
 	 * LSP PostRestoreLevel completes. Synchronous fire returns an invalid FDelegateHandle; deferred fire returns
 	 * a valid handle that can be passed to UnregisterResolveCallback.
-	 * Lifetime, if provided, is captured as a weak ptr — the callback is skipped at fire time if it has gone stale.
+	 * Lifetime, if provided, is captured as a weak ptr; the callback is skipped at fire time if it has gone stale.
 	 */
 	FDelegateHandle ResolveOrRegister(const FSoftObjectPath& LevelPath, FName ActorName,
 		FOnRuntimeActorResolved Callback, UObject* Lifetime = nullptr);
@@ -117,7 +117,7 @@ private:
 
 	// Tracks the level instance for each LevelPath that has had PostRestoreLevel fire. Matching the weak ptr
 	// against the current ResolveObject() distinguishes "post-restored and still loaded" from "was post-restored
-	// in a previous load cycle but is now streamed out" — re-stream needs to wait for a new PostRestoreLevel.
+	// in a previous load cycle but is now streamed out". Re-stream needs to wait for a new PostRestoreLevel.
 	TMap<FSoftObjectPath, TWeakObjectPtr<const ULevel>> PostRestoredLevelInstances;
 
 	bool IsLevelCurrentlyPostRestored(const FSoftObjectPath& LevelPath) const;

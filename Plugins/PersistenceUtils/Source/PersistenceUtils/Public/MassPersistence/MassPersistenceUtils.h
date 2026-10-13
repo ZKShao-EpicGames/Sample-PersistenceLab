@@ -52,7 +52,7 @@ public:
 	 * Fail-safe: if the world begins tearing down before the next phase end, the restore is abandoned and OnComplete
 	 * still fires (restoring during teardown serves no purpose).
 	 *
-	 * NOTE: Fragment structs are written raw — if a struct's layout has changed since the snapshot was saved, the
+	 * NOTE: Fragment structs are written raw. If a struct's layout has changed since the snapshot was saved, the
 	 * deserialized data will be incorrect.
 	 */
 	static void RestoreEntities(

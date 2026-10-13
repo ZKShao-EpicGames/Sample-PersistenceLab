@@ -99,7 +99,7 @@ void UResolvePersistableActorReferenceAction::DeferBroadcast(AActor* ResolvedAct
 	}
 	else
 	{
-		// No world to schedule on — fire immediately rather than leak the action.
+		// No world to schedule on: fire immediately rather than leak the action.
 		Fire();
 	}
 }

@@ -27,7 +27,7 @@ void UMassPersistenceUtils::SnapshotEntities(const UObject* WorldContextObject, 
 
 	// Teardown path: snapshot synchronously. The OnWorldBeginTearDown broadcast that triggers this fires from
 	// between-frame engine cleanup paths (UWorld::EndPlay, seamless travel, engine shutdown), so we are already
-	// outside any active phase. Waiting for the next phase boundary would deadlock — no further phase ticks
+	// outside any active phase. Waiting for the next phase boundary would deadlock: no further phase ticks
 	// occur before UMassSimulationSubsystem::Deinitialize stops the phase manager.
 	if (World->bIsTearingDown)
 	{
@@ -41,7 +41,7 @@ void UMassPersistenceUtils::SnapshotEntities(const UObject* WorldContextObject, 
 	UMassSimulationSubsystem* SimSub = World->GetSubsystem<UMassSimulationSubsystem>();
 	if (!SimSub)
 	{
-		// No Mass simulation in this world — nothing to snapshot. Fire empty so callers can proceed.
+		// No Mass simulation in this world, so nothing to snapshot. Fire empty so callers can proceed.
 		PreSnapshot.ExecuteIfBound();
 		OnComplete.ExecuteIfBound({});
 		return;
@@ -132,12 +132,12 @@ void UMassPersistenceUtils::RestoreEntities(const UObject* WorldContextObject, T
 	UMassSimulationSubsystem* SimSub = World->GetSubsystem<UMassSimulationSubsystem>();
 	if (!SimSub)
 	{
-		UE_LOG(LogPersistenceUtils, Warning, TEXT("RestoreEntities: No UMassSimulationSubsystem — restore skipped."));
+		UE_LOG(LogPersistenceUtils, Warning, TEXT("RestoreEntities: No UMassSimulationSubsystem, restore skipped."));
 		OnComplete.ExecuteIfBound();
 		return;
 	}
 
-	// Same shape as snapshot's async state, minus PreSnapshot — restore has no flush-state hook.
+	// Same shape as snapshot's async state, minus PreSnapshot: restore has no flush-state hook.
 	struct FAsyncRestoreState
 	{
 		TWeakObjectPtr<UWorld> WeakWorld;
@@ -181,7 +181,7 @@ void UMassPersistenceUtils::RestoreEntities(const UObject* WorldContextObject, T
 
 	State->PhaseHandle = SimSub->GetOnProcessingPhaseFinished(EMassProcessingPhase::FrameEnd).AddLambda([State](float /*DeltaSeconds*/) { State->Fire(/*bDoWork=*/true); });
 
-	// If the world tears down before we get a phase tick, abandon the restore — there's no one to read it.
+	// If the world tears down before we get a phase tick, abandon the restore; there's no one to read it.
 	State->TeardownHandle = FWorldDelegates::OnWorldBeginTearDown.AddLambda(
 		[State](UWorld* TornDownWorld)
 		{
@@ -215,7 +215,7 @@ void UMassPersistenceUtils::DoSnapshotWork(UWorld& World, TArray<FMassEntityConf
 		}
 		else
 		{
-			UE_LOG(LogPersistenceUtils, Warning, TEXT("SnapshotEntities: Could not resolve fragment type '%s' — skipping."), *PathName.ToString());
+			UE_LOG(LogPersistenceUtils, Warning, TEXT("SnapshotEntities: Could not resolve fragment type '%s', skipping."), *PathName.ToString());
 		}
 	}
 
@@ -326,7 +326,7 @@ void UMassPersistenceUtils::DoRestoreWork(UWorld& World, TConstArrayView<FMassEn
 	const UPersistenceUtilsSettings* Settings = GetDefault<UPersistenceUtilsSettings>();
 
 	// Resolve the fragment allow list once. Any saved fragment type that is no longer in the
-	// allow list is skipped at restore — its bytes are consumed but never written, so the layout
+	// allow list is skipped at restore: its bytes are consumed but never written, so the layout
 	// stays in sync per entity. Symmetric with the SnapshotEntities filter.
 	TSet<const UScriptStruct*> FragmentAllowList;
 	for (const FName& PathName : Settings->MassFragmentsToSerialize)
@@ -352,18 +352,18 @@ void UMassPersistenceUtils::DoRestoreWork(UWorld& World, TConstArrayView<FMassEn
 		// Source config must be resolvable; the recreate-from-fragment-layout fallback was removed.
 		if (!Snapshot.SourceConfigAsset.IsValid())
 		{
-			UE_LOG(LogPersistenceUtils, Warning, TEXT("RestoreEntities: Snapshot has no SourceConfigAsset — skipping."));
+			UE_LOG(LogPersistenceUtils, Warning, TEXT("RestoreEntities: Snapshot has no SourceConfigAsset, skipping."));
 			continue;
 		}
 		UMassEntityConfigAsset* RestoredConfig = Cast<UMassEntityConfigAsset>(Snapshot.SourceConfigAsset.TryLoad());
 		if (!RestoredConfig)
 		{
-			UE_LOG(LogPersistenceUtils, Warning, TEXT("RestoreEntities: Could not load config asset '%s' — snapshot skipped."), *Snapshot.SourceConfigAsset.ToString());
+			UE_LOG(LogPersistenceUtils, Warning, TEXT("RestoreEntities: Could not load config asset '%s', snapshot skipped."), *Snapshot.SourceConfigAsset.ToString());
 			continue;
 		}
 
 		// Resolve saved fragment types. Entries that can no longer be loaded, whose size has changed,
-		// or that are no longer in the allow list are marked null — their bytes will be skipped per
+		// or that are no longer in the allow list are marked null: their bytes will be skipped per
 		// entity rather than aborting the snapshot.
 		struct FResolvedFragment
 		{
@@ -381,16 +381,16 @@ void UMassPersistenceUtils::DoRestoreWork(UWorld& World, TConstArrayView<FMassEn
 
 			if (!R.Struct)
 			{
-				UE_LOG(LogPersistenceUtils, Warning, TEXT("RestoreEntities: Fragment '%s' could not be loaded — skipping its %d bytes per entity."), *Layout.Type.ToString(), Layout.SizeInBytes);
+				UE_LOG(LogPersistenceUtils, Warning, TEXT("RestoreEntities: Fragment '%s' could not be loaded, skipping its %d bytes per entity."), *Layout.Type.ToString(), Layout.SizeInBytes);
 			}
 			else if (R.Struct->GetStructureSize() != Layout.SizeInBytes)
 			{
-				UE_LOG(LogPersistenceUtils, Warning, TEXT("RestoreEntities: Fragment '%s' size changed (%d → %d bytes) — skipping saved data, fragment will be default-initialized."), *Layout.Type.GetAssetName(), Layout.SizeInBytes, R.Struct->GetStructureSize());
+				UE_LOG(LogPersistenceUtils, Warning, TEXT("RestoreEntities: Fragment '%s' size changed (%d → %d bytes), skipping saved data, fragment will be default-initialized."), *Layout.Type.GetAssetName(), Layout.SizeInBytes, R.Struct->GetStructureSize());
 				R.Struct = nullptr;
 			}
 			else if (!FragmentAllowList.Contains(R.Struct))
 			{
-				UE_LOG(LogPersistenceUtils, Warning, TEXT("RestoreEntities: Fragment '%s' is no longer in MassFragmentsToSerialize — skipping its %d bytes per entity."), *Layout.Type.GetAssetName(), Layout.SizeInBytes);
+				UE_LOG(LogPersistenceUtils, Warning, TEXT("RestoreEntities: Fragment '%s' is no longer in MassFragmentsToSerialize, skipping its %d bytes per entity."), *Layout.Type.GetAssetName(), Layout.SizeInBytes);
 				R.Struct = nullptr;
 			}
 			else
@@ -401,7 +401,7 @@ void UMassPersistenceUtils::DoRestoreWork(UWorld& World, TConstArrayView<FMassEn
 
 		if (ActiveFragmentTypes.IsEmpty())
 		{
-			UE_LOG(LogPersistenceUtils, Warning, TEXT("RestoreEntities: No resolvable fragments — snapshot skipped."));
+			UE_LOG(LogPersistenceUtils, Warning, TEXT("RestoreEntities: No resolvable fragments, snapshot skipped."));
 			continue;
 		}
 
@@ -414,7 +414,7 @@ void UMassPersistenceUtils::DoRestoreWork(UWorld& World, TConstArrayView<FMassEn
 
 			// Re-stamp the origin fragment with the snapshot's source config. Direct set assumes the trait
 			// (UPersistableEntityConfigTrait) is on the config so the fragment is in the template archetype.
-			// If the trait was removed since save, the fragment isn't present and we skip silently — the
+			// If the trait was removed since save, the fragment isn't present and we skip silently; the
 			// restored entity is no longer persistable but is otherwise functional.
 			for (FMassEntityHandle Entity : NewEntities)
 			{

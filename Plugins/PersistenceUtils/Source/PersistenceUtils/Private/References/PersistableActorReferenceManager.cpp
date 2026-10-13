@@ -39,7 +39,7 @@ void UPersistableActorReferenceManager::Deinitialize()
 		FirePending(Key, nullptr, false);
 	}
 
-	// Same for level-scoped callbacks — fire with a null level so callers can clean up.
+	// Same for level-scoped callbacks: fire with a null level so callers can clean up.
 	TArray<FSoftObjectPath> LevelKeys;
 	PendingLevelCallbacks.GetKeys(LevelKeys);
 	for (const FSoftObjectPath& LevelPath : LevelKeys)
@@ -121,7 +121,7 @@ AActor* UPersistableActorReferenceManager::GetPersistedRuntimeActor(const FSoftO
 		return nullptr;
 	}
 
-	// Registry first — handles runtime actors whose current FName differs from the saved one.
+	// Registry first: it handles runtime actors whose current FName differs from the saved one.
 	if (const TWeakObjectPtr<AActor>* Found = RegisteredActors.Find(FRefKey{ LevelPath, ActorName }))
 	{
 		if (AActor* Actor = Found->Get())
@@ -150,7 +150,7 @@ AActor* UPersistableActorReferenceManager::GetPersistedRuntimeActor(const FSoftO
 FDelegateHandle UPersistableActorReferenceManager::ResolveOrRegister(const FSoftObjectPath& LevelPath, FName ActorName,
 	FOnRuntimeActorResolved Callback, UObject* Lifetime)
 {
-	// Reject malformed keys outright — there's no point deferring something that can never resolve.
+	// Reject malformed keys outright; there's no point deferring something that can never resolve.
 	if (LevelPath.IsNull() || ActorName.IsNone())
 	{
 		Callback.ExecuteIfBound(nullptr, false);
@@ -163,7 +163,7 @@ FDelegateHandle UPersistableActorReferenceManager::ResolveOrRegister(const FSoft
 		return FDelegateHandle();
 	}
 
-	// The level is loaded and its LSP PostRestoreLevel has already fired — the answer is definitively "not here."
+	// The level is loaded and its LSP PostRestoreLevel has already fired, so the answer is definitively "not here."
 	// (Cross-level case where the level isn't loaded falls through to deferral.)
 	if (IsLevelCurrentlyPostRestored(LevelPath))
 	{
@@ -192,7 +192,7 @@ FDelegateHandle UPersistableActorReferenceManager::AddOnLevelPostRestoreCallback
 		return FDelegateHandle();
 	}
 
-	// Level already finalized and still loaded — fire now with the live level.
+	// Level already finalized and still loaded: fire now with the live level.
 	if (IsLevelCurrentlyPostRestored(LevelPath))
 	{
 		Callback.ExecuteIfBound(Cast<ULevel>(LevelPath.ResolveObject()));
@@ -261,7 +261,7 @@ void UPersistableActorReferenceManager::OnLevelPostRestore(const ULevel* Level)
 	const FSoftObjectPath LevelPath(Level);
 	PostRestoredLevelInstances.Add(LevelPath, Level);
 
-	// Snapshot keys-to-fire — FirePending mutates PendingCallbacks.
+	// Snapshot keys-to-fire, since FirePending mutates PendingCallbacks.
 	TArray<FRefKey> KeysToFire;
 	for (const TPair<FRefKey, TArray<FPendingCallback>>& Pair : PendingCallbacks)
 	{

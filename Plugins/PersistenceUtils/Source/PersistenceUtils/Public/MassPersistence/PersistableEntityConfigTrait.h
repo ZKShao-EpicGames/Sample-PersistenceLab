@@ -17,9 +17,9 @@ class UMassEntityConfigAsset;
  * to its source config, avoiding cross-matching between configs that share fragment composition.
  *
  * Added to an entity's archetype by UPersistableEntityConfigTrait. The value is stamped after spawn
- * by APersistedMassSpawner (using GetFragmentDataChecked — no archetype migration), and re-stamped
+ * by APersistedMassSpawner (using GetFragmentDataChecked, no archetype migration), and re-stamped
  * by RestoreEntities after re-creating entities from a saved snapshot. The fragment is NOT
- * byte-serialized into snapshots — the raw TObjectPtr would be meaningless across sessions.
+ * byte-serialized into snapshots: the raw TObjectPtr would be meaningless across sessions.
  */
 USTRUCT()
 struct PERSISTENCEUTILS_API FPersistableEntityConfigFragment : public FMassFragment
@@ -31,7 +31,7 @@ struct PERSISTENCEUTILS_API FPersistableEntityConfigFragment : public FMassFragm
 };
 
 // TObjectPtr<T> isn't trivially copyable in editor builds (carries debug state). Opt out of Mass's
-// trivial-copy fragment check — the GC barrier is the only "non-trivial" cost and it's a wash for
+// trivial-copy fragment check. The GC barrier is the only "non-trivial" cost and it's a wash for
 // a single-pointer fragment that lives one-per-entity.
 template<>
 struct TMassFragmentTraits<FPersistableEntityConfigFragment> final

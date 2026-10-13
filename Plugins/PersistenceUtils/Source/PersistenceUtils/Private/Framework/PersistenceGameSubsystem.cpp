@@ -16,7 +16,7 @@ void UPersistenceGameSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 #if WITH_EDITOR
 	if (GetWorld() && GetWorld()->IsPlayInEditor())
 	{
-		UE_LOG(LogPersistenceUtils, Log, TEXT("Initialize: PIE detected — attempting to load existing PIE save file."));
+		UE_LOG(LogPersistenceUtils, Log, TEXT("Initialize: PIE detected, attempting to load existing PIE save file."));
 		if (!LoadFromFile(TEXT("PIETestFile"), 0, /*bStartTravel=*/false))
 		{
 			StartNewSaveFile(TEXT("PIETestFile"), 0, UPersistenceSaveGame::StaticClass());
@@ -62,7 +62,7 @@ UPersistenceSaveGame* UPersistenceGameSubsystem::LoadFromFile(const FString& Slo
 
 	if (SaveGame->TravelData.Map.IsNull())
 	{
-		UE_LOG(LogPersistenceUtils, Log, TEXT("LoadFromFile: Loaded SaveGame from slot '%s' — no travel data, staying on current map."), *SlotName);
+		UE_LOG(LogPersistenceUtils, Log, TEXT("LoadFromFile: Loaded SaveGame from slot '%s'; no travel data, staying on current map."), *SlotName);
 	}
 	else if (bStartTravel)
 	{
@@ -70,7 +70,7 @@ UPersistenceSaveGame* UPersistenceGameSubsystem::LoadFromFile(const FString& Slo
 	}
 	else
 	{
-		UE_LOG(LogPersistenceUtils, Log, TEXT("LoadFromFile: Loaded SaveGame from slot '%s' — travel deferred (bStartTravel=false)."), *SlotName);
+		UE_LOG(LogPersistenceUtils, Log, TEXT("LoadFromFile: Loaded SaveGame from slot '%s'; travel deferred (bStartTravel=false)."), *SlotName);
 	}
 
 	return SaveGame;
@@ -158,7 +158,7 @@ void UPersistenceGameSubsystem::SaveToFile()
 	}
 	else
 	{
-		// No world subsystem (e.g., transition world). Nothing to flush — write directly.
+		// No world subsystem (e.g., transition world). Nothing to flush, so write directly.
 		ContinueSaveToFileToDisk();
 	}
 }
@@ -167,7 +167,7 @@ void UPersistenceGameSubsystem::ContinueSaveToFileToDisk()
 {
 	if (!SaveGame)
 	{
-		UE_LOG(LogPersistenceUtils, Warning, TEXT("ContinueSaveToFileToDisk: SaveGame was cleared during async flush — write aborted."));
+		UE_LOG(LogPersistenceUtils, Warning, TEXT("ContinueSaveToFileToDisk: SaveGame was cleared during async flush; write aborted."));
 		return;
 	}
 
@@ -199,7 +199,7 @@ void UPersistenceGameSubsystem::SetPersistenceTravelData(FPersistenceTravelData 
 	}
 
 	SaveGame->TravelData = MoveTemp(InTravelData);
-	UE_LOG(LogPersistenceUtils, Log, TEXT("SetPersistenceTravelData: Travel data set — Map: '%s', HasPawnTransform: %s."), *SaveGame->TravelData.Map.GetAssetPath().GetPackageName().ToString(), SaveGame->TravelData.bHasPawnTransform ? TEXT("true") : TEXT("false"));
+	UE_LOG(LogPersistenceUtils, Log, TEXT("SetPersistenceTravelData: Travel data set. Map: '%s', HasPawnTransform: %s."), *SaveGame->TravelData.Map.GetAssetPath().GetPackageName().ToString(), SaveGame->TravelData.bHasPawnTransform ? TEXT("true") : TEXT("false"));
 }
 
 void UPersistenceGameSubsystem::SetInstancedActorManagerDataForLevel(FName MapName, FName LevelName, FName ManagerName, TArray<uint8> InData)

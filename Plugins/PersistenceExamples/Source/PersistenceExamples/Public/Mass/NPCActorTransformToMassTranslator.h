@@ -12,7 +12,7 @@
  *
  * Drop-in alternative to UMassCharacterMovementToMassTranslator for the actor-authoritative
  * hybrid flow that uses UMassActorSubsystem mapping (FMassActorFragment) rather than
- * UMassAgentComponent — the engine translator depends on FCharacterMovementComponentWrapperFragment
+ * UMassAgentComponent. The engine translator depends on FCharacterMovementComponentWrapperFragment
  * which is populated by UMassAgentComponent's initializer; this one reads the actor directly.
  *
  * Inherits auto-register=true from UMassTranslator, runs in SyncWorldToMass group every tick.

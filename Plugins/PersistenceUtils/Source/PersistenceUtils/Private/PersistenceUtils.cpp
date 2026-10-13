@@ -150,7 +150,7 @@ void FPersistenceUtilsModule::StartupModule()
 			}
 		});
 
-	// Actors currently linked to a Mass entity are owned by Mass for persistence — skip them in the
+	// Actors currently linked to a Mass entity are owned by Mass for persistence, so skip them in the
 	// runtime-actor pathway. Covers both InstancedActors-spawned actors and Mass-Visualization high-LOD
 	// representations. Once the actor is unlinked from its entity (e.g. EjectInstance on the IAC, or
 	// Mass dehydrating the visualization), it falls through and gets persisted normally.
@@ -164,7 +164,7 @@ void FPersistenceUtilsModule::StartupModule()
 		});
 
 #if WITH_GAMEPLAY_DEBUGGER && WITH_INSTANCEDACTORS_DEBUG && WITH_MASSENTITY_DEBUG
-	// The IA plugin ships FGameplayDebuggerCategory_InstancedActors but doesn't register it itself —
+	// The IA plugin ships FGameplayDebuggerCategory_InstancedActors but doesn't register it itself;
 	// downstream projects wire it in. Enable it here so the GDT picks up the "InstancedActors" row.
 	if (IGameplayDebugger::IsAvailable())
 	{

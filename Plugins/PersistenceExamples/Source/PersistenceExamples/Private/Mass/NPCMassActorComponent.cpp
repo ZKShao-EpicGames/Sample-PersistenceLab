@@ -73,7 +73,7 @@ void UNPCMassActorComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		}
 	}
 
-	//UE_LOG(LogPersistenceExamples, Log, TEXT("[%s] NPCMassActorComponent EndPlay (Reason=%d) — flushed to entity %s"), *GetNameSafe(GetOwner()), (int32)EndPlayReason, *EntityHandle.DebugGetDescription());
+	//UE_LOG(LogPersistenceExamples, Log, TEXT("[%s] NPCMassActorComponent EndPlay (Reason=%d), flushed to entity %s"), *GetNameSafe(GetOwner()), (int32)EndPlayReason, *EntityHandle.DebugGetDescription());
 
 	Super::EndPlay(EndPlayReason);
 }
@@ -136,7 +136,7 @@ void UNPCMassActorComponent::HydrateFromEntity()
 
 	EntityManager.AddTagToEntity(EntityHandle, FNPCHydratedTag::StaticStruct());
 
-	// Actor is in charge now — close the Mass StateTree's path-follow gate so the dehydrated nav
+	// Actor is in charge now: close the Mass StateTree's path-follow gate so the dehydrated nav
 	// stack doesn't fight CharacterMovementComponent.
 	if (FNPCNavTargetFragment* NavFrag = EntityManager.GetFragmentDataPtr<FNPCNavTargetFragment>(EntityHandle))
 	{

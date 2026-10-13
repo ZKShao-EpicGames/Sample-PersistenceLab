@@ -56,7 +56,7 @@ bool FPersistableActorReference::SetFromActor(AActor* Actor)
 		return false;
 	}
 
-	// Player controllers and pawns prefer index-based identity — stable across sessions without needing component opt-in.
+	// Player controllers and pawns prefer index-based identity, which is stable across sessions without needing component opt-in.
 	if (APlayerController* PC = Cast<APlayerController>(Actor))
 	{
 		const int32 NumControllers = UGameplayStatics::GetNumPlayerControllers(World);
